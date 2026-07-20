@@ -1,0 +1,57 @@
+version: 1
+
+# Each entry describes ONE table to monitor. Checks are declarative -- add a
+# table here and the engine automatically runs the right checks against it.
+# No per-table Python code required.
+monitors:
+  - table: bronze_orders
+    owner: data-eng@example.com
+    freshness_sla_minutes: 60
+    row_count_baseline_window_days: 7
+    checks:
+      - type: not_null
+        columns: [order_id, restaurant_id, event_timestamp]
+      - type: unique
+        columns: [order_id]
+      - type: freshness
+        timestamp_column: event_timestamp
+      - type: row_count_anomaly
+        z_score_threshold: 3.0
+      - type: schema_drift
+        expected_columns:
+          order_id: string
+          restaurant_id: string
+          event_timestamp: timestamp
+          prep_time_minutes: float
+
+  - table: silver_orders
+    owner: data-eng@example.com
+    freshness_sla_minutes: 90
+    row_count_baseline_window_days: 7
+    upstream: [bronze_orders]   # lineage edge: silver depends on bronze
+    checks:
+      - type: not_null
+        columns: [order_id, restaurant_id, event_timestamp, prep_time_minutes]
+      - type: unique
+        columns: [order_id]
+      - type: freshness
+        timestamp_column: event_timestamp
+      - type: row_count_anomaly
+        z_score_threshold: 3.0
+      - type: range
+        column: prep_time_minutes
+        min_value: 0
+        max_value: 180
+
+  - table: gold_restaurant_metrics
+    owner: analytics-eng@example.com
+    freshness_sla_minutes: 180
+    row_count_baseline_window_days: 7
+    upstream: [silver_orders]
+    checks:
+      - type: not_null
+        columns: [restaurant_id, avg_prep_time_minutes_7d]
+      - type: freshness
+        timestamp_column: event_timestamp
+      - type: row_count_anomaly
+        z_score_threshold: 3.0
