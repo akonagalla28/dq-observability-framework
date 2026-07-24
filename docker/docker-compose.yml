@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dashboard
+    container_name: dq-observability-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ../storage/dq_history.db:/app/storage/dq_history.db
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
